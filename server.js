@@ -1,28 +1,41 @@
 const express = require("express")
 const cors = require("cors")
+const http = require("http")
+const { Server } = require("socket.io")
+const { PrismaClient } = require("@prisma/client")
+
+const prisma = new PrismaClient()
 
 const app = express()
 
 app.use(cors())
 app.use(express.json())
 
+// Root test route
 app.get("/", (req,res)=>{
  res.json({message:"Foosball backend running"})
 })
 
-const { PrismaClient } = require("@prisma/client")
-const prisma = new PrismaClient()
-
+// Leaderboard route
 app.get("/leaderboard", async (req,res)=>{
 
- const players = await prisma.player.findMany({
-  orderBy:{wins:"desc"}
- })
+ try{
 
- res.json(players)
+  const players = await prisma.player.findMany({
+   orderBy:{wins:"desc"}
+  })
+
+  res.json(players)
+
+ }catch(err){
+
+  res.status(500).json({error:"database error"})
+
+ }
 
 })
 
+// Record win
 app.post("/win", async (req,res)=>{
 
  const {name} = req.body
@@ -37,27 +50,65 @@ app.post("/win", async (req,res)=>{
 
 })
 
-const http = require("http")
-const { Server } = require("socket.io")
-
 const server = http.createServer(app)
 
 const io = new Server(server,{
  cors:{origin:"*"}
 })
 
-server.listen(3000)
-
 let users = []
+let waitingPlayer = null
 
 io.on("connection",(socket)=>{
 
+ console.log("User connected:", socket.id)
+
+ // user joins
  socket.on("join",(username)=>{
 
   users.push({id:socket.id, username})
 
   io.emit("activeUsers",users)
 
+ })
+
+ // matchmaking
+ socket.on("findMatch",()=>{
+
+  if(!waitingPlayer){
+
+   waitingPlayer = socket
+
+  } else{
+
+   const roomId = "game-"+Date.now()
+
+   waitingPlayer.join(roomId)
+   socket.join(roomId)
+
+   io.to(roomId).emit("startGame",{room:roomId})
+
+   waitingPlayer = null
+
+  }
+
+ })
+
+ // gameplay events
+ socket.on("push",(data)=>{
+  io.to(data.room).emit("push",data)
+ })
+
+ socket.on("tug",(data)=>{
+  io.to(data.room).emit("tug",data)
+ })
+
+ socket.on("ballUpdate",(data)=>{
+  io.to(data.room).emit("ballUpdate",data)
+ })
+
+ socket.on("scoreUpdate",(data)=>{
+  io.to(data.room).emit("scoreUpdate",data)
  })
 
  socket.on("disconnect",()=>{
@@ -70,41 +121,8 @@ io.on("connection",(socket)=>{
 
 })
 
-let waitingPlayer = null
+const PORT = process.env.PORT || 3000
 
-socket.on("findMatch",()=>{
-
- if(!waitingPlayer){
-  waitingPlayer = socket
- }
- else{
-
-  const roomId = "game-"+Date.now()
-
-  waitingPlayer.join(roomId)
-  socket.join(roomId)
-
-  io.to(roomId).emit("startGame")
-
-  waitingPlayer = null
-
- }
-
+server.listen(PORT,()=>{
+ console.log("Server running on port", PORT)
 })
-
-socket.on("push",(data)=>{
- io.to(data.room).emit("push",data)
-})
-
-socket.on("tug",(data)=>{
- io.to(data.room).emit("tug",data)
-})
-
-socket.on("ballUpdate",(data)=>{
- io.to(data.room).emit("ballUpdate",data)
-})
-
-socket.on("scoreUpdate",(data)=>{
- io.to(data.room).emit("scoreUpdate",data)
-})
-
