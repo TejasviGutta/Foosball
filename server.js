@@ -65,61 +65,87 @@ io.on("connection",(socket)=>{
 
     // user joins
     socket.on("join",(username)=>{
-    users = users.filter(u=> u.id !== socket.id) 
-    users.push({id:socket.id, username})
 
-    io.emit("activeUsers",users)
+        socket.username = username
+        users = users.filter(u=> u.id !== socket.id) 
+        users.push({id:socket.id, username})
 
-})
+        console.log("Active users:", users.length)
+
+        io.emit("activeUsers",users)
+    })
 
 // matchmaking
-socket.on("findMatch",()=>{
+socket.on("findMatch",(data)=>{
+    const username = data?.username || socket.username
+
+    if(!username) return
+
+    socket.username = username
 
     if(!waitingPlayer){
 
         waitingPlayer = socket
-
-    } else{
-
-        const roomId = "game-"+Date.now()
-
-        waitingPlayer.join(roomId)
-        socket.join(roomId)
-
-        waitingPlayer.room = roomId
-        socket.room = roomId
-        
-        waitingPlayer.emit("matchFound", { room: roomId })
-        socket.emit("matchFound", { room: roomId })
-
-        waitingPlayer.emit("startGame", { room: roomId, side: "left" })
-        socket.emit("startGame", { room: roomId, side: "right" })
-
-        waitingPlayer = null
-
+        socket.emit("waitingForOpponent")
+        return
     }
+
+ // prevent matching with yourself
+    if(waitingPlayer.id === socket.id){
+        return
+    }
+
+    const roomId = "game-"+Date.now()
+
+    waitingPlayer.join(roomId)
+    socket.join(roomId)
+
+    waitingPlayer.room = roomId
+    socket.room = roomId
+
+    const leftPlayer = waitingPlayer.username
+    const rightPlayer = socket.username
+
+    waitingPlayer.emit("matchFound",{room:roomId})
+    socket.emit("matchFound",{room:roomId})
+
+    waitingPlayer.emit("startGame",{
+        room:roomId,
+        side:"left",
+        leftPlayer,
+        rightPlayer
+    })
+
+    socket.emit("startGame",{
+        room:roomId,
+        side:"right",
+        leftPlayer,
+        rightPlayer
+    })
+
+    waitingPlayer = null
 
 })
 
 // gameplay events
 socket.on("push",(data)=>{
  if(!data.room) return
- io.to(data.room).emit("push",data)
+ socket.to(data.room).emit("push",data)
 })
 
 socket.on("tug",(data)=>{
     if(!data.room) return
-    io.to(data.room).emit("tug",data)
+    socket.to(data.room).emit("tug",data)
 })
 
 socket.on("ballUpdate",(data)=>{
     if(!data.room) return
-    io.to(data.room).emit("ballUpdate",data)
+    socket.to(data.room).emit("ballUpdate",data)
 })
 
 socket.on("scoreUpdate",(data)=>{
     if(!data.room) return
-    io.to(data.room).emit("scoreUpdate",data)
+    socket.to(data.room).emit("scoreUpdate",data)
 })
 
 socket.on("disconnect",()=>{
