@@ -70,10 +70,10 @@ io.on("connection",(socket)=>{
 
     io.emit("activeUsers",users)
 
- })
+})
 
- // matchmaking
- socket.on("findMatch",()=>{
+// matchmaking
+socket.on("findMatch",()=>{
 
     if(!waitingPlayer){
 
@@ -86,32 +86,39 @@ io.on("connection",(socket)=>{
         waitingPlayer.join(roomId)
         socket.join(roomId)
 
-        io.to(roomId).emit("startGame",{room:roomId})
+        waitingPlayer.room = roomId
+        socket.room = roomId
+        io.to(roomId).emit("matchFound")
+        io.to(roomId).emit("startGame", {room:roomId})
 
         waitingPlayer = null
 
     }
 
- })
+})
 
- // gameplay events
- socket.on("push",(data)=>{
-    io.to(data.room).emit("push",data)
- })
+// gameplay events
+socket.on("push",(data)=>{
+ if(!data.room) return
+ io.to(data.room).emit("push",data)
+})
 
- socket.on("tug",(data)=>{
+socket.on("tug",(data)=>{
+    if(!data.room) return
     io.to(data.room).emit("tug",data)
- })
+})
 
- socket.on("ballUpdate",(data)=>{
+socket.on("ballUpdate",(data)=>{
+    if(!data.room) return
     io.to(data.room).emit("ballUpdate",data)
- })
+})
 
- socket.on("scoreUpdate",(data)=>{
+socket.on("scoreUpdate",(data)=>{
+    if(!data.room) return
     io.to(data.room).emit("scoreUpdate",data)
- })
+})
 
- socket.on("disconnect",()=>{
+socket.on("disconnect",()=>{
 
     users = users.filter(u=>u.id !== socket.id)
 
@@ -121,7 +128,7 @@ io.on("connection",(socket)=>{
 
     io.emit("activeUsers",users)
 
- })
+})
 
 })
 
