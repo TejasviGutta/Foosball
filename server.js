@@ -13,47 +13,47 @@ app.use(express.json())
 
 // Root test route
 app.get("/", (req,res)=>{
- res.json({message:"Foosball backend running"})
+    res.json({message:"Foosball backend running"})
 })
 
 // Leaderboard route
 app.get("/leaderboard", async (req,res)=>{
 
- try{
+    try{
 
-  const players = await prisma.player.findMany({
-   orderBy:{wins:"desc"}
-  })
+    const players = await prisma.player.findMany({
+        orderBy:{wins:"desc"}
+    })
 
-  res.json(players)
+    res.json(players)
 
- }catch(err){
+    }catch(err){
 
-  res.status(500).json({error:"database error"})
+        res.status(500).json({error:"database error"})
 
- }
+    }
 
 })
 
 // Record win
 app.post("/win", async (req,res)=>{
 
- const {name} = req.body
+    const {name} = req.body
 
- const player = await prisma.player.upsert({
-  where:{name},
-  update:{wins:{increment:1}},
-  create:{name,wins:1}
- })
+    const player = await prisma.player.upsert({
+        where:{name},
+        update:{wins:{increment:1}},
+        create:{name,wins:1}
+    })
 
- res.json(player)
+    res.json(player)
 
 })
 
 const server = http.createServer(app)
 
 const io = new Server(server,{
- cors:{origin:"*"}
+    cors:{origin:"*"}
 })
 
 let users = []
@@ -61,61 +61,65 @@ let waitingPlayer = null
 
 io.on("connection",(socket)=>{
 
- console.log("User connected:", socket.id)
+    console.log("User connected:", socket.id)
 
- // user joins
- socket.on("join",(username)=>{
+    // user joins
+    socket.on("join",(username)=>{
+    users = users.filter(u=> u.id !== socket.id) 
+    users.push({id:socket.id, username})
 
-  users.push({id:socket.id, username})
-
-  io.emit("activeUsers",users)
+    io.emit("activeUsers",users)
 
  })
 
  // matchmaking
  socket.on("findMatch",()=>{
 
-  if(!waitingPlayer){
+    if(!waitingPlayer){
 
-   waitingPlayer = socket
+        waitingPlayer = socket
 
-  } else{
+    } else{
 
-   const roomId = "game-"+Date.now()
+        const roomId = "game-"+Date.now()
 
-   waitingPlayer.join(roomId)
-   socket.join(roomId)
+        waitingPlayer.join(roomId)
+        socket.join(roomId)
 
-   io.to(roomId).emit("startGame",{room:roomId})
+        io.to(roomId).emit("startGame",{room:roomId})
 
-   waitingPlayer = null
+        waitingPlayer = null
 
-  }
+    }
 
  })
 
  // gameplay events
  socket.on("push",(data)=>{
-  io.to(data.room).emit("push",data)
+    io.to(data.room).emit("push",data)
  })
 
  socket.on("tug",(data)=>{
-  io.to(data.room).emit("tug",data)
+    io.to(data.room).emit("tug",data)
  })
 
  socket.on("ballUpdate",(data)=>{
-  io.to(data.room).emit("ballUpdate",data)
+    io.to(data.room).emit("ballUpdate",data)
  })
 
  socket.on("scoreUpdate",(data)=>{
-  io.to(data.room).emit("scoreUpdate",data)
+    io.to(data.room).emit("scoreUpdate",data)
  })
 
  socket.on("disconnect",()=>{
 
-  users = users.filter(u=>u.id !== socket.id)
+    users = users.filter(u=>u.id !== socket.id)
 
-  io.emit("activeUsers",users)
+    if(waitingPlayer && waitingPlayer.id === socket.id){
+        waitingPlayer = null
+    }
+
+    io.emit("activeUsers",users)
 
  })
 
@@ -124,5 +128,5 @@ io.on("connection",(socket)=>{
 const PORT = process.env.PORT || 3000
 
 server.listen(PORT,()=>{
- console.log("Server running on port", PORT)
+    console.log("Server running on port", PORT)
 })
