@@ -88,8 +88,12 @@ socket.on("findMatch",()=>{
 
         waitingPlayer.room = roomId
         socket.room = roomId
-        io.to(roomId).emit("matchFound", {room:roomId})
-        io.to(roomId).emit("startGame", {room:roomId})
+        
+        waitingPlayer.emit("matchFound", { room: roomId })
+        socket.emit("matchFound", { room: roomId })
+
+        waitingPlayer.emit("startGame", { room: roomId, side: "left" })
+        socket.emit("startGame", { room: roomId, side: "right" })
 
         waitingPlayer = null
 
