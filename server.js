@@ -25,7 +25,11 @@ app.get("/leaderboard", async (req,res)=>{
         orderBy:{wins:"desc"}
     })
 
-    res.json(players)
+    res.json(players.map(p => ({
+        name: p.name,
+        wins: p.wins,
+        losses: p.losses
+    })))
 
     }catch(err){
 
@@ -43,7 +47,7 @@ app.post("/win", async (req,res)=>{
     const player = await prisma.player.upsert({
         where:{name},
         update:{wins:{increment:1}},
-        create:{name,wins:1}
+        create:{name,wins:1, losses:0}
     })
 
     res.json(player)
@@ -72,7 +76,7 @@ io.on("connection",(socket)=>{
 
         console.log("Active users:", users.length)
 
-        io.emit("activeUsers",users)
+        io.emit("activeUsers",users.map(u => u.username))
     })
 
 // matchmaking
@@ -156,7 +160,7 @@ socket.on("disconnect",()=>{
         waitingPlayer = null
     }
 
-    io.emit("activeUsers",users)
+    io.emit("activeUsers",users.map(u => u.username))
 
 })
 
