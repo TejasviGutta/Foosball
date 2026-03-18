@@ -75,9 +75,11 @@ io.on("connection",(socket)=>{
         users.push({id:socket.id, username})
 
         console.log("Active users:", users.length)
+        const names = users.map(u => u.username)
 
-        io.emit("activeUsers",users.map(u => u.username))
-    })
+        io.emit("activeUsers", names)     // update everyone
+        socket.emit("activeUsers", names) // ensure the joining user receives it
+})
 
 // matchmaking
 socket.on("findMatch",(data)=>{
