@@ -91,7 +91,7 @@ io.on("connection",(socket)=>{
     // user joins
     socket.on("join",(username)=>{
         if (!username || typeof username !== "string") return
-        
+
         socket.username = username
         users = users.filter(u => u.username !== username)
         users.push({id:socket.id, username})
@@ -173,7 +173,14 @@ socket.on("ballUpdate",(data)=>{
 
 socket.on("scoreUpdate",(data)=>{
     if(!data.room) return
-    socket.to(data.room).emit("scoreUpdate",data)
+    io.to(data.room).emit("scoreUpdate",data)
+})
+
+socket.on("nextRound", (data) => {
+    if (!data.room) return
+
+    // send to BOTH players (including sender)
+    io.to(data.room).emit("nextRound")
 })
 
 socket.on("disconnect",()=>{
