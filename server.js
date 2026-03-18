@@ -44,6 +44,10 @@ app.post("/win", async (req,res)=>{
 
     const {name} = req.body
 
+    if (!name || typeof name !== "string") {
+        return res.status(400).json({ error: "Invalid name" })
+    }
+
     const player = await prisma.player.upsert({
         where:{name},
         update:{wins:{increment:1}},
@@ -52,6 +56,23 @@ app.post("/win", async (req,res)=>{
 
     res.json(player)
 
+})
+
+app.post("/loss", async (req,res)=>{
+
+    const {name} = req.body
+
+    if (!name || typeof name !== "string") {
+        return res.status(400).json({ error: "Invalid name" })
+    }
+
+    const player = await prisma.player.upsert({
+        where:{name},
+        update:{losses:{increment:1}},
+        create:{name,wins:0, losses:1}
+    })
+
+    res.json(player)
 })
 
 const server = http.createServer(app)
@@ -69,9 +90,10 @@ io.on("connection",(socket)=>{
 
     // user joins
     socket.on("join",(username)=>{
-
+        if (!username || typeof username !== "string") return
+        
         socket.username = username
-        users = users.filter(u=> u.id !== socket.id) 
+        users = users.filter(u => u.username !== username)
         users.push({id:socket.id, username})
 
         console.log("Active users:", users.length)
@@ -158,7 +180,7 @@ socket.on("disconnect",()=>{
 
     users = users.filter(u=>u.id !== socket.id)
 
-    if(waitingPlayer && waitingPlayer.id === socket.id){
+    if (waitingPlayer?.id === socket.id) {
         waitingPlayer = null
     }
 
