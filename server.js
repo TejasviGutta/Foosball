@@ -6,6 +6,21 @@ const { PrismaClient } = require("@prisma/client")
 
 const prisma = new PrismaClient()
 
+async function initDB() {
+    try {
+        await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS Player (
+            name TEXT PRIMARY KEY,
+            wins INTEGER NOT NULL DEFAULT 0,
+            losses INTEGER NOT NULL DEFAULT 0
+        );
+        `)
+        console.log("✅ Player table ready")
+    } catch (err) {
+    console.error("❌ DB init failed:", err)
+    }
+}
+
 const app = express()
 
 app.use(cors())
@@ -73,6 +88,21 @@ app.post("/loss", async (req,res)=>{
     })
 
     res.json(player)
+})
+
+app.get("/test-add", async (req, res) => {
+    try {
+        const player = await prisma.player.upsert({
+            where: { name: "Gu" },
+            update: { wins: { increment: 1 } },
+            create: { name: "Gu", wins: 1, losses: 0 }
+        })
+
+        res.json(player)
+    } catch (err) {
+        console.error(err)
+        res.status(500).json({ error: err.message })
+    }
 })
 
 const server = http.createServer(app)
@@ -199,6 +229,12 @@ socket.on("disconnect",()=>{
 
 const PORT = process.env.PORT || 3000
 
-server.listen(PORT,()=>{
-    console.log("Server running on port", PORT)
-})
+async function startServer() {
+    await initDB() // 🔥 wait for table creation FIRST
+
+    server.listen(PORT, () => {
+        console.log("Server running on port", PORT)
+    })
+}
+
+startServer()
