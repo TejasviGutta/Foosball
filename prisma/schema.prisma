@@ -14,8 +14,7 @@ datasource db {
 }
 
 model Player {
-  id     Int    @id @default(autoincrement())
-  name   String @unique
-  wins   Int
-  losses Int
+  name   String @id
+  wins   Int    @default(0)
+  losses Int    @default(0)
 }
