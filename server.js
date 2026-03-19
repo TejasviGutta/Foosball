@@ -213,15 +213,25 @@ socket.on("nextRound", (data) => {
     io.to(data.room).emit("nextRound")
 })
 
-socket.on("disconnect",()=>{
+socket.on("disconnect", () => {
 
-    users = users.filter(u=>u.id !== socket.id)
+    console.log("User disconnected:", socket.id)
 
+    // remove from users list
+    users = users.filter(u => u.id !== socket.id)
+
+    // notify opponent if in a game
+    if (socket.room) {
+        socket.to(socket.room).emit("opponentLeft")
+    }
+
+    // clear waiting player if needed
     if (waitingPlayer?.id === socket.id) {
         waitingPlayer = null
     }
 
-    io.emit("activeUsers",users.map(u => u.username))
+    // update active users
+    io.emit("activeUsers", users.map(u => u.username))
 
 })
 
