@@ -105,6 +105,15 @@ app.get("/test-add", async (req, res) => {
     }
 })
 
+app.post("/reset", async (req, res) => {
+    try {
+        await prisma.player.deleteMany()
+        res.json({ message: "Leaderboard reset" })
+    } catch (err) {
+        res.status(500).json({ error: err.message })
+    }
+})
+
 const server = http.createServer(app)
 
 const io = new Server(server,{
