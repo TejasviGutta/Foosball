@@ -15,9 +15,9 @@ async function initDB() {
             losses INTEGER NOT NULL DEFAULT 0
         );
         `)
-        console.log("✅ Player table ready")
+        console.log("Player table ready")
     } catch (err) {
-    console.error("❌ DB init failed:", err)
+    console.error("DB init failed:", err)
     }
 }
 
@@ -217,22 +217,30 @@ socket.on("disconnect", () => {
 
     console.log("User disconnected:", socket.id)
 
-    // remove from users list
     users = users.filter(u => u.id !== socket.id)
 
-    // notify opponent if in a game
+    // PRIORITY: use stored room
     if (socket.room) {
+        console.log("Notifying room (stored):", socket.room)
         socket.to(socket.room).emit("opponentLeft")
+    } else {
+        //fallback: try socket.io rooms (may fail)
+        const rooms = [...socket.rooms]
+        const gameRoom = rooms.find(r => r !== socket.id)
+
+        if (gameRoom) {
+            console.log("Notifying room (fallback):", gameRoom)
+            socket.to(gameRoom).emit("opponentLeft")
+        } else {
+            console.log(" No room found for disconnected user")
+        }
     }
 
-    // clear waiting player if needed
     if (waitingPlayer?.id === socket.id) {
         waitingPlayer = null
     }
 
-    // update active users
     io.emit("activeUsers", users.map(u => u.username))
-
 })
 
 })
@@ -240,7 +248,7 @@ socket.on("disconnect", () => {
 const PORT = process.env.PORT || 3000
 
 async function startServer() {
-    await initDB() // 🔥 wait for table creation FIRST
+    await initDB() // wait for table creation FIRST
 
     server.listen(PORT, () => {
         console.log("Server running on port", PORT)
